@@ -1,4 +1,4 @@
-// Простое управление модальными окнами и слайдером
+// Простое управление модальными окнами, слайдером и формой обратной связи
 document.addEventListener('DOMContentLoaded', function () {
   // 1. Модальные окна
   const loginModal = document.getElementById('loginModal');
@@ -61,7 +61,6 @@ document.addEventListener('DOMContentLoaded', function () {
       currentSlide = index;
     }
 
-    // Скрываем все слайды и показываем только активный
     slides.forEach((slide, i) => {
       if (i === currentSlide) {
         slide.classList.add('active');
@@ -70,7 +69,6 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
 
-    // Обновляем точки
     dots.forEach((dot, i) => {
       if (i === currentSlide) {
         dot.classList.add('active');
@@ -97,4 +95,18 @@ document.addEventListener('DOMContentLoaded', function () {
       showSlide(i);
     });
   });
+
+  // 3. Форма обратной связи на странице contacts.html
+  const contactForm = document.getElementById('contactForm');
+  const alertSuccess = document.getElementById('contactSuccess');
+  if (contactForm && alertSuccess) {
+    contactForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      alertSuccess.style.display = 'block';
+      contactForm.reset();
+      setTimeout(function () {
+        alertSuccess.style.display = 'none';
+      }, 4000);
+    });
+  }
 });
