@@ -22,65 +22,27 @@
   </header>
 
   <main>
-    <h2 class="catalog-title">Игровые зоны клуба</h2>
-    <div class="zones-list">
-      <div class="zone-item">
-        <img src="https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80" alt="Общий зал">
-        <div class="zone-info">
-          <div>
-            <h3>Общий зал (Standart)</h3>
-            <p>Удобные места для одиночной игры и матчей с друзьями.</p>
-            <ul class="zone-details">
-              <li>• Процессор: Intel Core i5-12400F</li>
-              <li>• Видеокарта: GeForce RTX 3060</li>
-              <li>• Монитор: 24" 144 Гц</li>
-            </ul>
-          </div>
-          <div class="zone-bottom">
-            <span class="zone-price">120 руб / час</span>
-            <button class="btn btn-register open-login-btn">Забронировать</button>
-          </div>
-        </div>
-      </div>
+    <h2 class="catalog-title">Каталог игровых зон</h2>
 
-      <div class="zone-item">
-        <img src="https://images.unsplash.com/photo-1593305841991-05c297ba4575?auto=format&fit=crop&w=600&q=80" alt="VIP зал">
-        <div class="zone-info">
-          <div>
-            <h3>VIP зал</h3>
-            <p>Повышенный комфорт, просторные столы и топовое железо.</p>
-            <ul class="zone-details">
-              <li>• Процессор: Intel Core i7-13700F</li>
-              <li>• Видеокарта: GeForce RTX 4070</li>
-              <li>• Монитор: 27" 240 Гц 2K</li>
-            </ul>
-          </div>
-          <div class="zone-bottom">
-            <span class="zone-price">200 руб / час</span>
-            <button class="btn btn-register open-login-btn">Забронировать</button>
-          </div>
-        </div>
-      </div>
+    <div class="catalog-controls">
+      <select id="filterCategory">
+        <option value="all">Все категории</option>
+        <option value="standart">Общий зал</option>
+        <option value="vip">VIP зал</option>
+        <option value="bootcamp">BootCamp</option>
+        <option value="console">Консоли</option>
+      </select>
 
-      <div class="zone-item">
-        <img src="https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=600&q=80" alt="BootCamp зал">
-        <div class="zone-info">
-          <div>
-            <h3>BootCamp (на 5 человек)</h3>
-            <p>Изолированная комната для тренировок команд и турниров.</p>
-            <ul class="zone-details">
-              <li>• Процессор: AMD Ryzen 7 7700X</li>
-              <li>• Видеокарта: GeForce RTX 4080</li>
-              <li>• Монитор: 24.5" 280 Гц Esport</li>
-            </ul>
-          </div>
-          <div class="zone-bottom">
-            <span class="zone-price">800 руб / час (за зал)</span>
-            <button class="btn btn-register open-login-btn">Забронировать</button>
-          </div>
-        </div>
-      </div>
+      <select id="sortProducts">
+        <option value="newest">Сначала новые (по умолчанию)</option>
+        <option value="price_asc">Сначала дешевые</option>
+        <option value="price_desc">Сначала дорогие</option>
+        <option value="year">По году оборудования</option>
+        <option value="name">По наименованию (А-Я)</option>
+      </select>
     </div>
+
+    <div class="zones-list" id="productsContainer"></div>
   </main>
 
   <div id="loginModal" class="modal">

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title><%= product.name %> — CyberClub</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <a href="/" class="logo">🎮 CyberClub</a>
+    <ul class="nav-links">
+      <li><a href="/">Главная</a></li>
+      <li><a href="/catalog" class="active">Каталог</a></li>
+      <li><a href="/contacts">Контакты</a></li>
+    </ul>
+  </header>
+
+  <main>
+    <div class="product-page">
+      <img src="<%= product.image %>" alt="<%= product.name %>">
+      <div class="product-info">
+        <h2><%= product.name %></h2>
+        <div class="product-price"><%= product.price %> руб / час</div>
+        
+        <h3>Характеристики оборудования:</h3>
+        <ul class="product-specs">
+          <li><strong>Страна-производитель:</strong> <%= product.country %></li>
+          <li><strong>Год выпуска:</strong> <%= product.year %></li>
+          <li><strong>Модель:</strong> <%= product.model %></li>
+        </ul>
+
+        <button class="btn btn-register" style="margin-top: 25px; padding: 15px 30px; font-size: 18px;" onclick="alert('Успешно добавлено в корзину (бронь)')">В корзину</button>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <p>&copy; 2026 CyberClub. Компьютерный клуб. Лабораторная работа.</p>
+  </footer>
+</body>
+</html>
