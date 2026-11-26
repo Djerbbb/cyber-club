@@ -9,9 +9,29 @@ app.use(express.static('public'));
 app.use(express.json());
 
 // ================= «База данных» =================
-let usersDB = [];
+// Администратор создаётся при запуске сервера
+let usersDB = [
+    {
+        login: 'admin',
+        email: 'admin@cyberclub.ru',
+        password: 'admin123',
+        name: 'Администратор',
+        surname: '',
+        patronymic: '',
+        isAdmin: true
+    }
+];
+
 const ordersDB = [];
 let orderSequence = 0;
+
+const categoriesDB = [
+    { id: 1, code: 'standart', name: 'Общий зал' },
+    { id: 2, code: 'vip', name: 'VIP зал' },
+    { id: 3, code: 'bootcamp', name: 'BootCamp' },
+    { id: 4, code: 'console', name: 'Консоли' }
+];
+let categorySequence = 4;
 
 // stock — количество мест/часов, доступных для брони
 const productsDB = [
@@ -21,9 +41,22 @@ const productsDB = [
     { id: 4, name: "PC Standart (Место 15)", category: "standart", price: 120, image: "/img/3.webp", stock: 0, addedDate: "2024-10-22", year: 2022, country: "Китай", model: "Cyber-S1" },
     { id: 5, name: "Console Lounge (PS5)", category: "console", price: 300, image: "/img/4.jpg", stock: 3, addedDate: "2024-08-10", year: 2021, country: "Япония", model: "PlayStation 5" }
 ];
+let productSequence = 5;
+
+const ORDER_STATUS = {
+    new: 'Новый',
+    confirmed: 'Подтвержден',
+    cancelled: 'Отменен'
+};
 
 // Клиенту отдаём вычисляемое поле inStock
 const serializeProduct = (product) => ({ ...product, inStock: product.stock > 0 });
+
+// ФИО пользователя для заказа
+function fullName(user) {
+    const parts = [user.surname, user.name, user.patronymic].filter(Boolean);
+    return parts.length ? parts.join(' ') : user.login;
+}
 
 // ================= Сессии =================
 const SESSION_COOKIE = 'cc_sid';
@@ -98,12 +131,28 @@ function sendCart(req, res, extra = {}) {
     res.json({ success: true, cart: buildCart(req.session), user: req.session.user, ...extra });
 }
 
+// ================= Проверка прав администратора =================
+function requireAdmin(req, res, next) {
+    if (!req.session.user) {
+        return res.status(401).json({ success: false, message: 'Требуется авторизация.' });
+    }
+
+    const user = usersDB.find(u => u.login === req.session.user.login);
+    if (!user || !user.isAdmin) {
+        return res.status(403).json({ success: false, message: 'Доступ только для администратора.' });
+    }
+
+    req.admin = user;
+    next();
+}
+
 // ================= Страницы =================
 app.get('/', (req, res) => res.render('index'));
-app.get('/catalog', (req, res) => res.render('catalog'));
+app.get('/catalog', (req, res) => res.render('catalog', { categories: categoriesDB }));
 app.get('/contacts', (req, res) => res.render('contacts'));
 app.get('/cart', (req, res) => res.render('cart'));
 app.get('/account', (req, res) => res.render('account'));
+app.get('/admin', (req, res) => res.render('admin'));
 
 app.get('/product/:id', (req, res) => {
     const product = productsDB.find(p => p.id == req.params.id);
@@ -120,12 +169,25 @@ app.get('/api/me', (req, res) => {
     if (!req.session.user) {
         return res.json({ user: null });
     }
+
     const user = usersDB.find(u => u.login === req.session.user.login);
-    res.json({ user: user ? { login: user.login, email: user.email } : req.session.user });
+    if (!user) {
+        return res.json({ user: null });
+    }
+
+    res.json({
+        user: {
+            login: user.login,
+            email: user.email,
+            name: user.name || '',
+            surname: user.surname || '',
+            isAdmin: Boolean(user.isAdmin)
+        }
+    });
 });
 
 app.post('/api/register', (req, res) => {
-    const { login, email, password } = req.body || {};
+    const { name, surname, patronymic, login, email, password } = req.body || {};
 
     if (!login || !email || !password) {
         return res.status(400).json({ success: false, message: 'Заполните все поля.' });
@@ -134,7 +196,16 @@ app.post('/api/register', (req, res) => {
         return res.status(400).json({ success: false, message: 'Логин или email уже занят.' });
     }
 
-    usersDB.push({ login, email, password });
+    usersDB.push({
+        login,
+        email,
+        password,
+        name: String(name || '').trim(),
+        surname: String(surname || '').trim(),
+        patronymic: String(patronymic || '').trim(),
+        isAdmin: false
+    });
+
     res.json({ success: true, message: 'Регистрация прошла успешно!' });
 });
 
@@ -147,7 +218,11 @@ app.post('/api/login', (req, res) => {
     }
 
     req.session.user = { login: user.login };
-    res.json({ success: true, message: 'Успешная авторизация!', user: req.session.user });
+    res.json({
+        success: true,
+        message: 'Успешная авторизация!',
+        user: { login: user.login, email: user.email, name: user.name || '', isAdmin: Boolean(user.isAdmin) }
+    });
 });
 
 app.post('/api/logout', (req, res) => {
@@ -251,9 +326,11 @@ app.post('/api/checkout', (req, res) => {
         id: orderSequence + 1,
         number: 1000 + orderSequence + 1,
         login: user.login,
+        customer: fullName(user),
         items: cart.items,
         total: cart.total,
-        status: 'Новый',
+        status: ORDER_STATUS.new,
+        cancelReason: '',
         createdAt: new Date().toISOString()
     };
     orderSequence += 1;
@@ -282,24 +359,6 @@ app.get('/api/orders', (req, res) => {
     res.json({ success: true, orders });
 });
 
-// Подтверждение получения заказа пользователем
-app.post('/api/orders/:id/complete', (req, res) => {
-    if (!req.session.user) {
-        return res.status(401).json({ success: false, message: 'Требуется авторизация.' });
-    }
-
-    const order = ordersDB.find(order => order.id === Number(req.params.id) && order.login === req.session.user.login);
-    if (!order) {
-        return res.status(404).json({ success: false, message: 'Заказ не найден.' });
-    }
-    if (order.status !== 'Новый') {
-        return res.status(400).json({ success: false, message: 'Заказ уже выполнен.' });
-    }
-
-    order.status = 'Выполнен';
-    res.json({ success: true, message: `Заказ №${order.number} отмечен как выполненный.`, order });
-});
-
 // Удалять можно только новые заказы
 app.post('/api/orders/:id/delete', (req, res) => {
     if (!req.session.user) {
@@ -312,7 +371,7 @@ app.post('/api/orders/:id/delete', (req, res) => {
     }
 
     const order = ordersDB[index];
-    if (order.status !== 'Новый') {
+    if (order.status !== ORDER_STATUS.new) {
         return res.status(400).json({ success: false, message: 'Удалить можно только новый заказ.' });
     }
 
@@ -324,6 +383,192 @@ app.post('/api/orders/:id/delete', (req, res) => {
 
     ordersDB.splice(index, 1);
     res.json({ success: true, message: `Заказ №${order.number} удалён.` });
+});
+
+// ================= Админ-панель: заказы =================
+app.get('/api/admin/orders', requireAdmin, (req, res) => {
+    const status = ORDER_STATUS[req.query.status] || null;
+
+    const orders = ordersDB
+        .filter(order => !status || order.status === status)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    res.json({ success: true, orders, statuses: ORDER_STATUS });
+});
+
+app.post('/api/admin/orders/:id/confirm', requireAdmin, (req, res) => {
+    const order = ordersDB.find(order => order.id === Number(req.params.id));
+    if (!order) {
+        return res.status(404).json({ success: false, message: 'Заказ не найден.' });
+    }
+    if (order.status !== ORDER_STATUS.new) {
+        return res.status(400).json({ success: false, message: 'Подтвердить можно только новый заказ.' });
+    }
+
+    order.status = ORDER_STATUS.confirmed;
+    order.confirmedAt = new Date().toISOString();
+    res.json({ success: true, message: `Заказ №${order.number} подтверждён.`, order });
+});
+
+app.post('/api/admin/orders/:id/cancel', requireAdmin, (req, res) => {
+    const reason = String((req.body || {}).reason || '').trim();
+    const order = ordersDB.find(order => order.id === Number(req.params.id));
+
+    if (!order) {
+        return res.status(404).json({ success: false, message: 'Заказ не найден.' });
+    }
+    if (order.status === ORDER_STATUS.cancelled) {
+        return res.status(400).json({ success: false, message: 'Заказ уже отменён.' });
+    }
+    if (!reason) {
+        return res.status(400).json({ success: false, message: 'Укажите причину отмены.' });
+    }
+
+    order.status = ORDER_STATUS.cancelled;
+    order.cancelReason = reason;
+    order.cancelledAt = new Date().toISOString();
+
+    // Отменённый заказ возвращает товары на склад
+    order.items.forEach(item => {
+        const product = productsDB.find(p => p.id === item.id);
+        if (product) product.stock += item.quantity;
+    });
+
+    res.json({ success: true, message: `Заказ №${order.number} отменён.`, order });
+});
+
+// ================= Админ-панель: товары =================
+app.get('/api/admin/products', requireAdmin, (req, res) => {
+    res.json({ success: true, products: productsDB.map(serializeProduct), categories: categoriesDB });
+});
+
+function readProductBody(body = {}) {
+    return {
+        name: String(body.name || '').trim(),
+        category: String(body.category || '').trim(),
+        price: Number(body.price),
+        stock: Number(body.stock),
+        country: String(body.country || '').trim(),
+        model: String(body.model || '').trim(),
+        year: Number(body.year) || null,
+        image: String(body.image || '').trim()
+    };
+}
+
+function validateProduct(data, res) {
+    if (!data.name) {
+        res.status(400).json({ success: false, message: 'Укажите название товара.' });
+        return false;
+    }
+    if (!categoriesDB.find(category => category.code === data.category)) {
+        res.status(400).json({ success: false, message: 'Выберите существующую категорию.' });
+        return false;
+    }
+    if (!Number.isFinite(data.price) || data.price <= 0) {
+        res.status(400).json({ success: false, message: 'Цена должна быть положительным числом.' });
+        return false;
+    }
+    if (!Number.isInteger(data.stock) || data.stock < 0) {
+        res.status(400).json({ success: false, message: 'Количество должно быть целым неотрицательным числом.' });
+        return false;
+    }
+    return true;
+}
+
+app.post('/api/admin/products', requireAdmin, (req, res) => {
+    const data = readProductBody(req.body);
+    if (!validateProduct(data, res)) return;
+
+    productSequence += 1;
+    const product = {
+        id: productSequence,
+        name: data.name,
+        category: data.category,
+        price: data.price,
+        image: data.image || '/img/1.jpg',
+        stock: data.stock,
+        addedDate: new Date().toISOString().slice(0, 10),
+        year: data.year || new Date().getFullYear(),
+        country: data.country || '—',
+        model: data.model || '—'
+    };
+
+    productsDB.push(product);
+    res.json({ success: true, message: `Товар «${product.name}» опубликован.`, product: serializeProduct(product) });
+});
+
+app.post('/api/admin/products/:id', requireAdmin, (req, res) => {
+    const product = productsDB.find(item => item.id === Number(req.params.id));
+    if (!product) {
+        return res.status(404).json({ success: false, message: 'Товар не найден.' });
+    }
+
+    const data = readProductBody(req.body);
+    if (!validateProduct(data, res)) return;
+
+    product.name = data.name;
+    product.category = data.category;
+    product.price = data.price;
+    product.stock = data.stock;
+    product.image = data.image || product.image;
+    product.year = data.year || product.year;
+    product.country = data.country || product.country;
+    product.model = data.model || product.model;
+
+    res.json({ success: true, message: `Товар «${product.name}» сохранён.`, product: serializeProduct(product) });
+});
+
+app.post('/api/admin/products/:id/delete', requireAdmin, (req, res) => {
+    const index = productsDB.findIndex(item => item.id === Number(req.params.id));
+    if (index === -1) {
+        return res.status(404).json({ success: false, message: 'Товар не найден.' });
+    }
+
+    const [product] = productsDB.splice(index, 1);
+    res.json({ success: true, message: `Товар «${product.name}» удалён.` });
+});
+
+// ================= Админ-панель: категории =================
+app.get('/api/admin/categories', requireAdmin, (req, res) => {
+    const categories = categoriesDB.map(category => ({
+        ...category,
+        productsCount: productsDB.filter(product => product.category === category.code).length
+    }));
+    res.json({ success: true, categories });
+});
+
+app.post('/api/admin/categories', requireAdmin, (req, res) => {
+    const name = String((req.body || {}).name || '').trim();
+    if (!name) {
+        return res.status(400).json({ success: false, message: 'Укажите название категории.' });
+    }
+    if (categoriesDB.find(category => category.name.toLowerCase() === name.toLowerCase())) {
+        return res.status(400).json({ success: false, message: 'Такая категория уже существует.' });
+    }
+
+    categorySequence += 1;
+    const category = { id: categorySequence, code: 'cat' + categorySequence, name };
+    categoriesDB.push(category);
+    res.json({ success: true, message: `Категория «${name}» добавлена.`, category });
+});
+
+app.post('/api/admin/categories/:id/delete', requireAdmin, (req, res) => {
+    const index = categoriesDB.findIndex(category => category.id === Number(req.params.id));
+    if (index === -1) {
+        return res.status(404).json({ success: false, message: 'Категория не найдена.' });
+    }
+
+    const category = categoriesDB[index];
+    const productsCount = productsDB.filter(product => product.category === category.code).length;
+    if (productsCount > 0) {
+        return res.status(400).json({
+            success: false,
+            message: `Нельзя удалить категорию «${category.name}»: в ней ${productsCount} товар(ов).`
+        });
+    }
+
+    categoriesDB.splice(index, 1);
+    res.json({ success: true, message: `Категория «${category.name}» удалена.` });
 });
 
 app.listen(PORT, () => console.log(`Сервер запущен на http://localhost:${PORT}`));

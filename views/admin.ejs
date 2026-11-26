@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Админ-панель — CyberClub</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+  <header>
+    <a href="/" class="logo">🎮 CyberClub</a>
+    <ul class="nav-links">
+      <li><a href="/">Главная</a></li>
+      <li><a href="/catalog">Каталог</a></li>
+      <li><a href="/contacts">Контакты</a></li>
+      <li><a href="/account">Личный кабинет</a></li>
+      <li id="adminNav"><a href="/admin" class="active">Админ-панель</a></li>
+    </ul>
+    <div class="auth-buttons">
+      <a href="/cart" class="btn btn-cart">Корзина <span class="cart-count" id="cartCount">0</span></a>
+      <span class="user-login" id="userLogin"></span>
+      <button class="btn btn-login open-login-btn login-trigger">Войти</button>
+      <button class="btn btn-register open-register-btn login-trigger">Регистрация</button>
+      <button class="btn btn-login" id="logoutBtn" style="display: none;">Выйти</button>
+    </div>
+  </header>
+
+  <main id="adminPage" class="main-admin">
+    <h2 class="catalog-title">Админ-панель</h2>
+
+    <div class="notice" id="adminMessage" hidden></div>
+
+    <div class="account-guest" id="adminDenied" hidden>
+      <p>Раздел доступен только администратору.</p>
+      <button type="button" class="btn btn-register open-login-btn">Войти как администратор</button>
+    </div>
+
+    <div id="adminContent" hidden>
+      <div class="admin-tabs">
+        <button type="button" class="admin-tab active" data-tab="orders">Заказы</button>
+        <button type="button" class="admin-tab" data-tab="products">Товары</button>
+        <button type="button" class="admin-tab" data-tab="categories">Категории</button>
+      </div>
+
+      <section class="admin-section" id="tab-orders">
+        <div class="admin-filters" id="orderFilters">
+          <button type="button" class="filter-btn active" data-status="new">Новые</button>
+          <button type="button" class="filter-btn" data-status="confirmed">Подтвержденные</button>
+          <button type="button" class="filter-btn" data-status="cancelled">Отмененные</button>
+        </div>
+
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Дата и время</th>
+                <th>Заказчик</th>
+                <th>Товаров</th>
+                <th>Сумма</th>
+                <th>Статус</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="ordersBody"></tbody>
+          </table>
+        </div>
+
+        <div class="admin-empty" id="ordersEmpty" hidden>Заказов с таким статусом нет.</div>
+      </section>
+
+      <section class="admin-section" id="tab-products" hidden>
+        <div class="admin-toolbar">
+          <button type="button" class="btn btn-register" id="addProductBtn">Добавить товар</button>
+        </div>
+
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Товар</th>
+                <th>Категория</th>
+                <th>Цена</th>
+                <th>В наличии</th>
+                <th>Статус</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="productsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="admin-section" id="tab-categories" hidden>
+        <form class="admin-inline-form" id="categoryForm">
+          <input type="text" id="categoryName" placeholder="Название новой категории" required>
+          <button type="submit" class="btn btn-register">Добавить категорию</button>
+        </form>
+
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Название</th>
+                <th>Код</th>
+                <th>Товаров</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="categoriesBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Модальное окно: товар -->
+      <div id="productModal" class="modal">
+        <div class="modal-content admin-modal">
+          <button class="close-btn" type="button" id="productModalClose">&times;</button>
+          <h3 id="productModalTitle">Новый товар</h3>
+          <form id="productForm" novalidate>
+            <input type="hidden" id="productId">
+
+            <div class="form-group">
+              <label for="productName">Название:</label>
+              <input type="text" id="productName" required>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="productCategory">Категория:</label>
+                <select id="productCategory"></select>
+              </div>
+              <div class="form-group">
+                <label for="productPrice">Цена, руб/час:</label>
+                <input type="number" id="productPrice" min="1" required>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="productStock">В наличии, шт.:</label>
+                <input type="number" id="productStock" min="0" required>
+              </div>
+              <div class="form-group">
+                <label for="productYear">Год выпуска:</label>
+                <input type="number" id="productYear">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="productCountry">Страна:</label>
+                <input type="text" id="productCountry">
+              </div>
+              <div class="form-group">
+                <label for="productModel">Модель:</label>
+                <input type="text" id="productModel">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="productImage">Ссылка на изображение:</label>
+              <input type="text" id="productImage" placeholder="/img/1.jpg">
+            </div>
+
+            <button type="submit" class="btn btn-register" style="width: 100%;">Сохранить</button>
+            <div class="error-msg" id="productError"></div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Модальное окно: отмена заказа -->
+      <div id="cancelModal" class="modal">
+        <div class="modal-content">
+          <button class="close-btn" type="button" id="cancelModalClose">&times;</button>
+          <h3>Отмена заказа <span id="cancelOrderNumber"></span></h3>
+          <form id="cancelForm" novalidate>
+            <div class="form-group">
+              <label for="cancelReason">Причина отмены:</label>
+              <textarea id="cancelReason" rows="3" placeholder="Например: на это время нет свободных мест"></textarea>
+            </div>
+            <button type="submit" class="btn btn-danger" style="width: 100%;">Отменить заказ</button>
+            <div class="error-msg" id="cancelError"></div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <%- include('partials/auth-modals') %>
+
+  <footer>
+    <p>&copy; 2026 CyberClub. Компьютерный клуб. Лабораторная работа.</p>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
