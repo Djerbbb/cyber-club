@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Корзина — CyberClub</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+  <header>
+    <a href="/" class="logo">🎮 CyberClub</a>
+    <ul class="nav-links">
+      <li><a href="/">Главная</a></li>
+      <li><a href="/catalog">Каталог</a></li>
+      <li><a href="/contacts">Контакты</a></li>
+      <li><a href="/cart" class="active">Корзина</a></li>
+    </ul>
+    <div class="auth-buttons">
+      <a href="/cart" class="btn btn-cart">Корзина <span class="cart-count" id="cartCount">0</span></a>
+      <span class="user-login" id="userLogin"></span>
+      <button class="btn btn-login open-login-btn login-trigger">Войти</button>
+      <button class="btn btn-register open-register-btn login-trigger">Регистрация</button>
+      <button class="btn btn-login" id="logoutBtn" style="display: none;">Выйти</button>
+    </div>
+  </header>
+
+  <main class="main-cart">
+    <h2 class="catalog-title">Корзина</h2>
+
+    <div class="cart-message" id="cartMessage" hidden></div>
+
+    <div class="cart-layout" id="cartPage">
+      <section class="cart-items" id="cartItems"></section>
+
+      <aside class="cart-summary" id="cartSummary">
+        <h3>Ваш заказ</h3>
+        <div class="summary-row">
+          <span>Товаров:</span>
+          <strong id="cartTotalCount">0</strong>
+        </div>
+        <div class="summary-row summary-total">
+          <span>Итого:</span>
+          <strong id="cartTotalSum">0 руб.</strong>
+        </div>
+
+        <div class="checkout-box">
+          <h4>Оформление заказа</h4>
+
+          <div class="checkout-guest" id="checkoutGuest" hidden>
+            <p>Чтобы оформить заказ, войдите в аккаунт.</p>
+            <button type="button" class="btn btn-login open-login-btn">Войти</button>
+          </div>
+
+          <form id="checkoutForm" novalidate>
+            <p class="checkout-user">Вы вошли как <strong id="checkoutUser">—</strong></p>
+
+            <div class="form-group">
+              <label for="checkoutPassword">Пароль для подтверждения:</label>
+              <input type="password" id="checkoutPassword" autocomplete="current-password" placeholder="Введите свой пароль">
+            </div>
+
+            <button type="submit" class="btn btn-register btn-checkout" id="checkoutSubmit">Сформировать заказ</button>
+
+            <div class="error-msg checkout-error" id="checkoutError"></div>
+          </form>
+        </div>
+      </aside>
+    </div>
+
+    <div class="order-success" id="orderSuccess" hidden>
+      <h3>Заказ оформлен</h3>
+      <p id="orderSuccessText"></p>
+      <a href="/catalog" class="btn btn-register">Вернуться в каталог</a>
+    </div>
+
+    <div class="cart-empty" id="cartEmpty" hidden>
+      <p>Ваша корзина пуста.</p>
+      <a href="/catalog" class="btn btn-register">Перейти в каталог</a>
+    </div>
+  </main>
+
+  <%- include('partials/auth-modals') %>
+
+  <footer>
+    <p>&copy; 2026 CyberClub. Компьютерный клуб. Лабораторная работа.</p>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>

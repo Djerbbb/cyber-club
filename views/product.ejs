@@ -2,6 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><%= product.name %> — CyberClub</title>
   <link rel="stylesheet" href="/style.css">
 </head>
@@ -13,6 +14,13 @@
       <li><a href="/catalog" class="active">Каталог</a></li>
       <li><a href="/contacts">Контакты</a></li>
     </ul>
+    <div class="auth-buttons">
+      <a href="/cart" class="btn btn-cart">Корзина <span class="cart-count" id="cartCount">0</span></a>
+      <span class="user-login" id="userLogin"></span>
+      <button class="btn btn-login open-login-btn login-trigger">Войти</button>
+      <button class="btn btn-register open-register-btn login-trigger">Регистрация</button>
+      <button class="btn btn-login" id="logoutBtn" style="display: none;">Выйти</button>
+    </div>
   </header>
 
   <main>
@@ -21,7 +29,9 @@
       <div class="product-info">
         <h2><%= product.name %></h2>
         <div class="product-price"><%= product.price %> руб / час</div>
-        
+
+        <p class="product-stock">В наличии: <strong><%= product.stock %></strong> шт.</p>
+
         <h3>Характеристики оборудования:</h3>
         <ul class="product-specs">
           <li><strong>Страна-производитель:</strong> <%= product.country %></li>
@@ -29,13 +39,20 @@
           <li><strong>Модель:</strong> <%= product.model %></li>
         </ul>
 
-        <button class="btn btn-register" style="margin-top: 25px; padding: 15px 30px; font-size: 18px;" onclick="alert('Успешно добавлено в корзину (бронь)')">В корзину</button>
+        <div class="product-actions">
+          <button class="btn btn-register" id="addToCartBtn" data-product-id="<%= product.id %>">В корзину</button>
+          <a href="/cart" class="btn btn-outline">Перейти в корзину</a>
+        </div>
       </div>
     </div>
   </main>
 
+  <%- include('partials/auth-modals') %>
+
   <footer>
     <p>&copy; 2026 CyberClub. Компьютерный клуб. Лабораторная работа.</p>
   </footer>
+
+  <script src="/app.js"></script>
 </body>
 </html>

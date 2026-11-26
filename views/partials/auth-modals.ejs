@@ -1,0 +1,74 @@
+  <!-- Модальное окно: вход -->
+  <div id="loginModal" class="modal">
+    <div class="modal-content">
+      <button class="close-btn">&times;</button>
+      <h3>Авторизация</h3>
+      <form id="loginForm" novalidate>
+        <div class="form-group">
+          <label>Логин:</label>
+          <input type="text" id="authLogin">
+          <span class="error-msg" id="errAuthLogin"></span>
+        </div>
+        <div class="form-group">
+          <label>Пароль:</label>
+          <input type="password" id="authPassword">
+          <span class="error-msg" id="errAuthPassword"></span>
+        </div>
+        <button type="submit" class="btn btn-register" style="width: 100%; margin-top: 10px;">Войти</button>
+        <div id="authGlobalError" class="error-msg" style="text-align: center; margin-top: 10px;"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Модальное окно: регистрация -->
+  <div id="registerModal" class="modal">
+    <div class="modal-content" style="width: 400px;">
+      <button class="close-btn">&times;</button>
+      <h3>Регистрация</h3>
+      <form id="registerForm" novalidate>
+        <div class="form-group">
+          <label>Имя (обязательно):</label>
+          <input type="text" id="regName">
+          <span class="error-msg" id="errRegName"></span>
+        </div>
+        <div class="form-group">
+          <label>Фамилия (обязательно):</label>
+          <input type="text" id="regSurname">
+          <span class="error-msg" id="errRegSurname"></span>
+        </div>
+        <div class="form-group">
+          <label>Отчество (не обязательно):</label>
+          <input type="text" id="regPatronymic">
+          <span class="error-msg" id="errRegPatronymic"></span>
+        </div>
+        <div class="form-group">
+          <label>Логин:</label>
+          <input type="text" id="regLogin">
+          <span class="error-msg" id="errRegLogin"></span>
+        </div>
+        <div class="form-group">
+          <label>Email:</label>
+          <input type="email" id="regEmail">
+          <span class="error-msg" id="errRegEmail"></span>
+        </div>
+        <div class="form-group">
+          <label>Пароль:</label>
+          <input type="password" id="regPassword">
+          <span class="error-msg" id="errRegPassword"></span>
+        </div>
+        <div class="form-group">
+          <label>Повторите пароль:</label>
+          <input type="password" id="regPasswordRepeat">
+          <span class="error-msg" id="errRegPasswordRepeat"></span>
+        </div>
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="regRules">
+          <label for="regRules">Согласен с правилами регистрации</label>
+        </div>
+        <span class="error-msg" id="errRegRules"></span>
+
+        <button type="submit" class="btn btn-register" style="width: 100%; margin-top: 10px;">Создать аккаунт</button>
+        <div id="regGlobalSuccess" class="success-msg">Регистрация прошла успешно!</div>
+      </form>
+    </div>
+  </div>
