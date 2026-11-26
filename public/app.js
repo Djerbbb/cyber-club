@@ -51,6 +51,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) logoutBtn.style.display = user ? '' : 'none';
+
+    // Ссылка на админ-панель только для администратора
+    const adminNav = document.getElementById('adminNav');
+    if (adminNav) adminNav.hidden = !(user && user.isAdmin);
   }
 
   // Показываем форму подтверждения только авторизованному пользователю
@@ -190,7 +194,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!rules) { document.getElementById('errRegRules').textContent = 'Необходимо согласие.'; isValid = false; }
 
       if (isValid) {
-        apiRequest('/api/register', { login, email, password })
+        apiRequest('/api/register', { name, surname, patronymic, login, email, password })
           .then(({ data }) => {
             if (data.success) {
               document.getElementById('regGlobalSuccess').style.display = 'block';
@@ -458,11 +462,22 @@ document.addEventListener('DOMContentLoaded', function () {
           <li><span>${item.name}</span><span>${item.quantity} шт.</span></li>
     `).join('');
 
+    const statusClasses = {
+      'Новый': 'status-new',
+      'Подтвержден': 'status-confirmed',
+      'Отменен': 'status-cancelled'
+    };
+    const statusClass = statusClasses[order.status] || 'status-new';
     const isNew = order.status === 'Новый';
+
+    // Удалить пользователь может только новый заказ
     const actions = isNew
-      ? '<button type="button" class="btn btn-outline btn-small" data-action="complete">Подтвердить получение</button>' +
-        '<button type="button" class="btn btn-danger btn-small" data-action="delete">Удалить заказ</button>'
-      : '<span class="order-done-note">Заказ получен</span>';
+      ? '<button type="button" class="btn btn-danger btn-small" data-action="delete">Удалить заказ</button>'
+      : '';
+
+    const reason = order.status === 'Отменен' && order.cancelReason
+      ? `<p class="order-reason">Причина отмены: ${order.cancelReason}</p>`
+      : '';
 
     return `
       <article class="order-card" data-id="${order.id}">
@@ -471,11 +486,12 @@ document.addEventListener('DOMContentLoaded', function () {
             <h3>Заказ №${order.number}</h3>
             <span class="order-date">${formatOrderDate(order.createdAt)}</span>
           </div>
-          <span class="order-status ${isNew ? 'status-new' : 'status-done'}">${order.status}</span>
+          <span class="order-status ${statusClass}">${order.status}</span>
         </div>
 
         <p class="order-count">Количество товаров: <strong>${itemsCount}</strong></p>
         <ul class="order-items">${itemsList}</ul>
+        ${reason}
 
         <div class="order-foot">
           <span class="order-total">${order.total} руб.</span>
@@ -537,13 +553,9 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!card) return;
 
       const orderId = Number(card.dataset.id);
-      const action = btn.dataset.action;
-      const url = action === 'delete'
-        ? '/api/orders/' + orderId + '/delete'
-        : '/api/orders/' + orderId + '/complete';
 
       btn.disabled = true;
-      apiRequest(url, {})
+      apiRequest('/api/orders/' + orderId + '/delete', {})
         .then(({ ok, data }) => {
           btn.disabled = false;
           if (data.message) showAccountMessage(data.message, ok ? 'success' : 'error');
@@ -553,6 +565,319 @@ document.addEventListener('DOMContentLoaded', function () {
           btn.disabled = false;
           showAccountMessage('Не удалось выполнить действие. Попробуйте ещё раз.', 'error');
         });
+    });
+  }
+
+  // ================= 10. Админ-панель =================
+  const adminPageEl = document.getElementById('adminPage');
+
+  if (adminPageEl) {
+    const adminMessage = document.getElementById('adminMessage');
+    const adminDenied = document.getElementById('adminDenied');
+    const adminContent = document.getElementById('adminContent');
+    const ordersBody = document.getElementById('ordersBody');
+    const ordersEmpty = document.getElementById('ordersEmpty');
+    const productsBody = document.getElementById('productsBody');
+    const categoriesBody = document.getElementById('categoriesBody');
+    const productModal = document.getElementById('productModal');
+    const cancelModal = document.getElementById('cancelModal');
+    const productForm = document.getElementById('productForm');
+    const categoryForm = document.getElementById('categoryForm');
+    const cancelForm = document.getElementById('cancelForm');
+    const productCategorySelect = document.getElementById('productCategory');
+
+    let currentStatus = 'new';
+    let categories = [];
+    let products = [];
+    let editingProductId = null;
+    let cancelOrderId = null;
+
+    function showAdminMessage(text, type = 'success') {
+      if (!text) return;
+      adminMessage.textContent = text;
+      adminMessage.className = 'notice notice-' + type;
+      adminMessage.hidden = false;
+    }
+
+    function formatTimestamp(iso) {
+      return new Date(iso).toLocaleString('ru-RU', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+    }
+
+    function statusClass(status) {
+      if (status === 'Новый') return 'status-new';
+      if (status === 'Подтвержден') return 'status-confirmed';
+      return 'status-cancelled';
+    }
+
+    function categoryName(code) {
+      const category = categories.find(item => item.code === code);
+      return category ? category.name : '—';
+    }
+
+    function renderOrders(orders) {
+      ordersEmpty.hidden = orders.length > 0;
+      ordersBody.innerHTML = orders.map(order => {
+        const itemsCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
+        const reason = order.status === 'Отменен' && order.cancelReason
+          ? `<div class="table-reason">Причина отказа: ${order.cancelReason}</div>`
+          : '';
+        const actions = order.status === 'Новый'
+          ? `<button type="button" class="btn btn-small btn-outline" data-action="confirm" data-id="${order.id}">Подтвердить</button>
+             <button type="button" class="btn btn-small btn-danger" data-action="cancel" data-id="${order.id}" data-number="${order.number}">Отменить</button>`
+          : '';
+
+        return `
+          <tr>
+            <td class="cell-date">${formatTimestamp(order.createdAt)}</td>
+            <td><strong>${order.customer}</strong><div class="cell-muted">${order.login}</div>${reason}</td>
+            <td>${itemsCount} шт.</td>
+            <td>${order.total} руб.</td>
+            <td><span class="order-status ${statusClass(order.status)}">${order.status}</span></td>
+            <td class="cell-actions">${actions}</td>
+          </tr>`;
+      }).join('');
+    }
+
+    function loadOrders() {
+      apiRequest('/api/admin/orders?status=' + currentStatus)
+        .then(({ ok, data }) => {
+          if (!ok) {
+            showAdminMessage(data.message || 'Не удалось загрузить заказы.', 'error');
+            return;
+          }
+          renderOrders(data.orders || []);
+        })
+        .catch(() => showAdminMessage('Не удалось загрузить заказы.', 'error'));
+    }
+
+    function renderProducts() {
+      productsBody.innerHTML = products.map(product => `
+        <tr>
+          <td><strong>${product.name}</strong><div class="cell-muted">${product.country}, ${product.year}</div></td>
+          <td>${categoryName(product.category)}</td>
+          <td>${product.price} руб.</td>
+          <td>${product.stock} шт.</td>
+          <td>${product.stock > 0 ? '<span class="order-status status-confirmed">Опубликован</span>' : '<span class="order-status status-cancelled">Нет в наличии</span>'}</td>
+          <td class="cell-actions">
+            <button type="button" class="btn btn-small btn-outline" data-action="edit" data-id="${product.id}">Изменить</button>
+            <button type="button" class="btn btn-small btn-danger" data-action="delete" data-id="${product.id}">Удалить</button>
+          </td>
+        </tr>`).join('');
+    }
+
+    function renderCategories() {
+      categoriesBody.innerHTML = categories.map(category => `
+        <tr>
+          <td><strong>${category.name}</strong></td>
+          <td class="cell-muted">${category.code}</td>
+          <td>${category.productsCount}</td>
+          <td class="cell-actions">
+            <button type="button" class="btn btn-small btn-danger" data-action="delete-category" data-id="${category.id}">Удалить</button>
+          </td>
+        </tr>`).join('');
+    }
+
+    function fillCategorySelect(selected) {
+      productCategorySelect.innerHTML = categories.map(category =>
+        `<option value="${category.code}">${category.name}</option>`).join('');
+      if (selected) productCategorySelect.value = selected;
+    }
+
+    function loadCatalog() {
+      Promise.all([apiRequest('/api/admin/products'), apiRequest('/api/admin/categories')])
+        .then(([productsResponse, categoriesResponse]) => {
+          if (!productsResponse.ok || !categoriesResponse.ok) {
+            showAdminMessage('Не удалось загрузить данные.', 'error');
+            return;
+          }
+          products = productsResponse.data.products || [];
+          categories = categoriesResponse.data.categories || [];
+          renderProducts();
+          renderCategories();
+          fillCategorySelect();
+        })
+        .catch(() => showAdminMessage('Не удалось загрузить данные.', 'error'));
+    }
+
+    function switchTab(tab) {
+      document.querySelectorAll('.admin-tab').forEach(button => {
+        button.classList.toggle('active', button.dataset.tab === tab);
+      });
+      document.getElementById('tab-orders').hidden = tab !== 'orders';
+      document.getElementById('tab-products').hidden = tab !== 'products';
+      document.getElementById('tab-categories').hidden = tab !== 'categories';
+
+      if (tab === 'orders') loadOrders();
+      if (tab === 'products' || tab === 'categories') loadCatalog();
+    }
+
+    document.querySelectorAll('.admin-tab').forEach(button => {
+      button.addEventListener('click', () => switchTab(button.dataset.tab));
+    });
+
+    document.querySelectorAll('#orderFilters .filter-btn').forEach(button => {
+      button.addEventListener('click', () => {
+        currentStatus = button.dataset.status;
+        document.querySelectorAll('#orderFilters .filter-btn').forEach(item => {
+          item.classList.toggle('active', item === button);
+        });
+        loadOrders();
+      });
+    });
+
+    ordersBody.addEventListener('click', function (event) {
+      const button = event.target.closest('[data-action]');
+      if (!button) return;
+
+      const orderId = button.dataset.id;
+      if (button.dataset.action === 'confirm') {
+        apiRequest('/api/admin/orders/' + orderId + '/confirm', {})
+          .then(({ ok, data }) => {
+            showAdminMessage(data.message, ok ? 'success' : 'error');
+            if (ok) loadOrders();
+          });
+      } else if (button.dataset.action === 'cancel') {
+        cancelOrderId = orderId;
+        document.getElementById('cancelOrderNumber').textContent = '№' + button.dataset.number;
+        document.getElementById('cancelReason').value = '';
+        document.getElementById('cancelError').textContent = '';
+        cancelModal.style.display = 'flex';
+      }
+    });
+
+    cancelForm.addEventListener('submit', function (event) {
+      event.preventDefault();
+      const reason = document.getElementById('cancelReason').value.trim();
+      if (!reason) {
+        document.getElementById('cancelError').textContent = 'Укажите причину отмены.';
+        return;
+      }
+
+      apiRequest('/api/admin/orders/' + cancelOrderId + '/cancel', { reason })
+        .then(({ ok, data }) => {
+          if (ok) {
+            cancelModal.style.display = 'none';
+            showAdminMessage(data.message, 'success');
+            loadOrders();
+          } else {
+            document.getElementById('cancelError').textContent = data.message;
+          }
+        });
+    });
+
+    document.getElementById('cancelModalClose').addEventListener('click', () => {
+      cancelModal.style.display = 'none';
+    });
+
+    // ---- товары ----
+    function openProductModal(product) {
+      editingProductId = product ? product.id : null;
+      document.getElementById('productModalTitle').textContent = product ? 'Редактирование товара' : 'Новый товар';
+      document.getElementById('productName').value = product ? product.name : '';
+      document.getElementById('productPrice').value = product ? product.price : '';
+      document.getElementById('productStock').value = product ? product.stock : '';
+      document.getElementById('productYear').value = product ? product.year : '';
+      document.getElementById('productCountry').value = product ? product.country : '';
+      document.getElementById('productModel').value = product ? product.model : '';
+      document.getElementById('productImage').value = product ? product.image : '';
+      document.getElementById('productError').textContent = '';
+      fillCategorySelect(product ? product.category : undefined);
+      productModal.style.display = 'flex';
+    }
+
+    document.getElementById('addProductBtn').addEventListener('click', () => openProductModal(null));
+    document.getElementById('productModalClose').addEventListener('click', () => {
+      productModal.style.display = 'none';
+    });
+
+    productForm.addEventListener('submit', function (event) {
+      event.preventDefault();
+
+      const payload = {
+        name: document.getElementById('productName').value.trim(),
+        category: productCategorySelect.value,
+        price: Number(document.getElementById('productPrice').value),
+        stock: Number(document.getElementById('productStock').value),
+        year: Number(document.getElementById('productYear').value) || null,
+        country: document.getElementById('productCountry').value.trim(),
+        model: document.getElementById('productModel').value.trim(),
+        image: document.getElementById('productImage').value.trim()
+      };
+
+      const url = editingProductId
+        ? '/api/admin/products/' + editingProductId
+        : '/api/admin/products';
+
+      apiRequest(url, payload).then(({ ok, data }) => {
+        if (!ok) {
+          document.getElementById('productError').textContent = data.message;
+          return;
+        }
+        productModal.style.display = 'none';
+        showAdminMessage(data.message, 'success');
+        loadCatalog();
+      });
+    });
+
+    productsBody.addEventListener('click', function (event) {
+      const button = event.target.closest('[data-action]');
+      if (!button) return;
+
+      const productId = Number(button.dataset.id);
+      if (button.dataset.action === 'edit') {
+        const product = products.find(item => item.id === productId);
+        if (product) openProductModal(product);
+      } else if (button.dataset.action === 'delete') {
+        apiRequest('/api/admin/products/' + productId + '/delete', {})
+          .then(({ ok, data }) => {
+            showAdminMessage(data.message, ok ? 'success' : 'error');
+            if (ok) loadCatalog();
+          });
+      }
+    });
+
+    // ---- категории ----
+    categoryForm.addEventListener('submit', function (event) {
+      event.preventDefault();
+      const name = document.getElementById('categoryName').value.trim();
+      if (!name) return;
+
+      apiRequest('/api/admin/categories', { name }).then(({ ok, data }) => {
+        showAdminMessage(data.message, ok ? 'success' : 'error');
+        if (ok) {
+          document.getElementById('categoryName').value = '';
+          loadCatalog();
+        }
+      });
+    });
+
+    categoriesBody.addEventListener('click', function (event) {
+      const button = event.target.closest('[data-action]');
+      if (!button) return;
+
+      apiRequest('/api/admin/categories/' + button.dataset.id + '/delete', {})
+        .then(({ ok, data }) => {
+          showAdminMessage(data.message, ok ? 'success' : 'error');
+          if (ok) loadCatalog();
+        });
+    });
+
+    // ---- доступ ----
+    apiRequest('/api/me').then(({ data }) => {
+      const user = data.user;
+      if (!user || !user.isAdmin) {
+        adminDenied.hidden = false;
+        adminContent.hidden = true;
+        return;
+      }
+
+      adminDenied.hidden = true;
+      adminContent.hidden = false;
+      loadOrders();
+      loadCatalog();
     });
   }
 

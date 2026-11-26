@@ -15,6 +15,7 @@
       <li><a href="/catalog" class="active">Каталог</a></li>
       <li><a href="/contacts">Контакты</a></li>
       <li><a href="/account">Личный кабинет</a></li>
+      <li id="adminNav" hidden><a href="/admin">Админ-панель</a></li>
     </ul>
     <div class="auth-buttons">
       <a href="/cart" class="btn btn-cart">Корзина <span class="cart-count" id="cartCount">0</span></a>
@@ -31,10 +32,9 @@
     <div class="catalog-controls">
       <select id="filterCategory">
         <option value="all">Все категории</option>
-        <option value="standart">Общий зал</option>
-        <option value="vip">VIP зал</option>
-        <option value="bootcamp">BootCamp</option>
-        <option value="console">Консоли</option>
+        <% categories.forEach(function (category) { %>
+        <option value="<%= category.code %>"><%= category.name %></option>
+        <% }); %>
       </select>
 
       <select id="sortProducts">
