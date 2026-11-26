@@ -77,6 +77,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Если открыт личный кабинет — обновляем список заказов
     if (accountPageEl) loadAccount();
+
+    // Если открыта админ-панель — проверяем права и загружаем данные
+    if (document.getElementById('adminPage') && window.refreshAdminAccess) {
+      window.refreshAdminAccess(user);
+    }
   }
 
   // ================= 1. Модальные окна =================
@@ -866,8 +871,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // ---- доступ ----
-    apiRequest('/api/me').then(({ data }) => {
-      const user = data.user;
+    function refreshAdminAccess(user) {
       if (!user || !user.isAdmin) {
         adminDenied.hidden = false;
         adminContent.hidden = true;
@@ -878,7 +882,9 @@ document.addEventListener('DOMContentLoaded', function () {
       adminContent.hidden = false;
       loadOrders();
       loadCatalog();
-    });
+    }
+
+    window.refreshAdminAccess = refreshAdminAccess;
   }
 
   // ================= 9. Начальное состояние =================
