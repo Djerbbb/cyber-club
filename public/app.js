@@ -70,6 +70,9 @@ document.addEventListener('DOMContentLoaded', function () {
     currentUser = user;
     refreshAuthUI(user);
     updateCheckoutAuth();
+
+    // Если открыт личный кабинет — обновляем список заказов
+    if (accountPageEl) loadAccount();
   }
 
   // ================= 1. Модальные окна =================
@@ -438,7 +441,122 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // ================= 8. Начальное состояние =================
+  // ================= 8. Личный кабинет =================
+  const accountPageEl = document.getElementById('accountPage');
+
+  function formatOrderDate(iso) {
+    const date = new Date(iso);
+    return date.toLocaleString('ru-RU', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+  }
+
+  function renderOrderCard(order) {
+    const itemsCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
+    const itemsList = order.items.map(item => `
+          <li><span>${item.name}</span><span>${item.quantity} шт.</span></li>
+    `).join('');
+
+    const isNew = order.status === 'Новый';
+    const actions = isNew
+      ? '<button type="button" class="btn btn-outline btn-small" data-action="complete">Подтвердить получение</button>' +
+        '<button type="button" class="btn btn-danger btn-small" data-action="delete">Удалить заказ</button>'
+      : '<span class="order-done-note">Заказ получен</span>';
+
+    return `
+      <article class="order-card" data-id="${order.id}">
+        <div class="order-head">
+          <div>
+            <h3>Заказ №${order.number}</h3>
+            <span class="order-date">${formatOrderDate(order.createdAt)}</span>
+          </div>
+          <span class="order-status ${isNew ? 'status-new' : 'status-done'}">${order.status}</span>
+        </div>
+
+        <p class="order-count">Количество товаров: <strong>${itemsCount}</strong></p>
+        <ul class="order-items">${itemsList}</ul>
+
+        <div class="order-foot">
+          <span class="order-total">${order.total} руб.</span>
+          <div class="order-actions">${actions}</div>
+        </div>
+      </article>
+    `;
+  }
+
+  function renderAccount(user, orders) {
+    const guest = document.getElementById('accountGuest');
+    const content = document.getElementById('accountContent');
+    if (!guest || !content) return;
+
+    guest.hidden = Boolean(user);
+    content.hidden = !user;
+    if (!user) return;
+
+    document.getElementById('profileAvatar').textContent = user.login.charAt(0).toUpperCase();
+    document.getElementById('profileLogin').textContent = user.login;
+    document.getElementById('profileEmail').textContent = user.email || '—';
+    document.getElementById('profileOrdersCount').textContent = orders.length;
+
+    const list = document.getElementById('ordersList');
+    const empty = document.getElementById('ordersEmpty');
+    list.innerHTML = orders.map(renderOrderCard).join('');
+    if (empty) empty.hidden = orders.length > 0;
+  }
+
+  function loadAccount() {
+    if (!accountPageEl) return Promise.resolve();
+
+    return Promise.all([apiRequest('/api/me'), apiRequest('/api/orders')])
+      .then(([me, ordersResponse]) => {
+        const user = me.data.user || null;
+        const orders = ordersResponse.ok ? (ordersResponse.data.orders || []) : [];
+        orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        renderAccount(user, orders);
+      })
+      .catch(() => {});
+  }
+
+  if (accountPageEl) {
+    const ordersList = document.getElementById('ordersList');
+
+    function showAccountMessage(text, type) {
+      const messageEl = document.getElementById('accountMessage');
+      if (!messageEl) return;
+      messageEl.textContent = text;
+      messageEl.className = 'notice notice-' + type;
+      messageEl.hidden = false;
+    }
+
+    ordersList.addEventListener('click', function (event) {
+      const btn = event.target.closest('[data-action]');
+      if (!btn) return;
+
+      const card = btn.closest('.order-card');
+      if (!card) return;
+
+      const orderId = Number(card.dataset.id);
+      const action = btn.dataset.action;
+      const url = action === 'delete'
+        ? '/api/orders/' + orderId + '/delete'
+        : '/api/orders/' + orderId + '/complete';
+
+      btn.disabled = true;
+      apiRequest(url, {})
+        .then(({ ok, data }) => {
+          btn.disabled = false;
+          if (data.message) showAccountMessage(data.message, ok ? 'success' : 'error');
+          loadAccount();
+        })
+        .catch(() => {
+          btn.disabled = false;
+          showAccountMessage('Не удалось выполнить действие. Попробуйте ещё раз.', 'error');
+        });
+    });
+  }
+
+  // ================= 9. Начальное состояние =================
   Promise.all([apiRequest('/api/me'), apiRequest('/api/cart')])
     .then(([me, cart]) => {
       syncAuth(me.data.user || null);

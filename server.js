@@ -11,6 +11,7 @@ app.use(express.json());
 // ================= «База данных» =================
 let usersDB = [];
 const ordersDB = [];
+let orderSequence = 0;
 
 // stock — количество мест/часов, доступных для брони
 const productsDB = [
@@ -102,6 +103,7 @@ app.get('/', (req, res) => res.render('index'));
 app.get('/catalog', (req, res) => res.render('catalog'));
 app.get('/contacts', (req, res) => res.render('contacts'));
 app.get('/cart', (req, res) => res.render('cart'));
+app.get('/account', (req, res) => res.render('account'));
 
 app.get('/product/:id', (req, res) => {
     const product = productsDB.find(p => p.id == req.params.id);
@@ -114,7 +116,13 @@ app.get('/product/:id', (req, res) => {
 app.get('/api/products', (req, res) => res.json(productsDB.map(serializeProduct)));
 
 // ================= Авторизация =================
-app.get('/api/me', (req, res) => res.json({ user: req.session.user }));
+app.get('/api/me', (req, res) => {
+    if (!req.session.user) {
+        return res.json({ user: null });
+    }
+    const user = usersDB.find(u => u.login === req.session.user.login);
+    res.json({ user: user ? { login: user.login, email: user.email } : req.session.user });
+});
 
 app.post('/api/register', (req, res) => {
     const { login, email, password } = req.body || {};
@@ -240,13 +248,15 @@ app.post('/api/checkout', (req, res) => {
     });
 
     const order = {
-        id: ordersDB.length + 1,
-        number: 1001 + ordersDB.length,
+        id: orderSequence + 1,
+        number: 1000 + orderSequence + 1,
         login: user.login,
         items: cart.items,
         total: cart.total,
+        status: 'Новый',
         createdAt: new Date().toISOString()
     };
+    orderSequence += 1;
     ordersDB.push(order);
     req.session.cart = {};
 
@@ -258,11 +268,62 @@ app.post('/api/checkout', (req, res) => {
     });
 });
 
+// ================= Заказы пользователя =================
 app.get('/api/orders', (req, res) => {
     if (!req.session.user) {
         return res.status(401).json({ success: false, message: 'Требуется авторизация.' });
     }
-    res.json(ordersDB.filter(order => order.login === req.session.user.login));
+
+    // Заказы пользователя, от новых к старым
+    const orders = ordersDB
+        .filter(order => order.login === req.session.user.login)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    res.json({ success: true, orders });
+});
+
+// Подтверждение получения заказа пользователем
+app.post('/api/orders/:id/complete', (req, res) => {
+    if (!req.session.user) {
+        return res.status(401).json({ success: false, message: 'Требуется авторизация.' });
+    }
+
+    const order = ordersDB.find(order => order.id === Number(req.params.id) && order.login === req.session.user.login);
+    if (!order) {
+        return res.status(404).json({ success: false, message: 'Заказ не найден.' });
+    }
+    if (order.status !== 'Новый') {
+        return res.status(400).json({ success: false, message: 'Заказ уже выполнен.' });
+    }
+
+    order.status = 'Выполнен';
+    res.json({ success: true, message: `Заказ №${order.number} отмечен как выполненный.`, order });
+});
+
+// Удалять можно только новые заказы
+app.post('/api/orders/:id/delete', (req, res) => {
+    if (!req.session.user) {
+        return res.status(401).json({ success: false, message: 'Требуется авторизация.' });
+    }
+
+    const index = ordersDB.findIndex(order => order.id === Number(req.params.id) && order.login === req.session.user.login);
+    if (index === -1) {
+        return res.status(404).json({ success: false, message: 'Заказ не найден.' });
+    }
+
+    const order = ordersDB[index];
+    if (order.status !== 'Новый') {
+        return res.status(400).json({ success: false, message: 'Удалить можно только новый заказ.' });
+    }
+
+    // Возвращаем забронированные товары на склад
+    order.items.forEach(item => {
+        const product = productsDB.find(p => p.id === item.id);
+        if (product) product.stock += item.quantity;
+    });
+
+    ordersDB.splice(index, 1);
+    res.json({ success: true, message: `Заказ №${order.number} удалён.` });
 });
 
 app.listen(PORT, () => console.log(`Сервер запущен на http://localhost:${PORT}`));

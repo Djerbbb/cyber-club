@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Личный кабинет — CyberClub</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+  <header>
+    <a href="/" class="logo">🎮 CyberClub</a>
+    <ul class="nav-links">
+      <li><a href="/">Главная</a></li>
+      <li><a href="/catalog">Каталог</a></li>
+      <li><a href="/contacts">Контакты</a></li>
+      <li><a href="/account" class="active">Личный кабинет</a></li>
+    </ul>
+    <div class="auth-buttons">
+      <a href="/cart" class="btn btn-cart">Корзина <span class="cart-count" id="cartCount">0</span></a>
+      <span class="user-login" id="userLogin"></span>
+      <button class="btn btn-login open-login-btn login-trigger">Войти</button>
+      <button class="btn btn-register open-register-btn login-trigger">Регистрация</button>
+      <button class="btn btn-login" id="logoutBtn" style="display: none;">Выйти</button>
+    </div>
+  </header>
+
+  <main id="accountPage">
+    <h2 class="catalog-title">Личный кабинет</h2>
+
+    <div class="notice" id="accountMessage" hidden></div>
+
+    <div class="account-guest" id="accountGuest" hidden>
+      <p>Войдите в аккаунт, чтобы посмотреть свои заказы.</p>
+      <button type="button" class="btn btn-register open-login-btn">Войти</button>
+    </div>
+
+    <div id="accountContent" hidden>
+      <div class="profile-card">
+        <div class="profile-avatar" id="profileAvatar">?</div>
+        <div class="profile-info">
+          <h3 id="profileLogin">—</h3>
+          <p id="profileEmail">—</p>
+        </div>
+        <div class="profile-stats">
+          <strong id="profileOrdersCount">0</strong>
+          <span>заказов</span>
+        </div>
+      </div>
+
+      <section class="account-orders">
+        <h3>Мои заказы</h3>
+
+        <div class="orders-list" id="ordersList"></div>
+
+        <div class="account-empty" id="ordersEmpty" hidden>
+          <p>У вас пока нет заказов.</p>
+          <a href="/catalog" class="btn btn-register">Перейти в каталог</a>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <%- include('partials/auth-modals') %>
+
+  <footer>
+    <p>&copy; 2026 CyberClub. Компьютерный клуб. Лабораторная работа.</p>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
